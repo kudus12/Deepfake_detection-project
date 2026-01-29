@@ -1,0 +1,16 @@
+.preview-wrapper {
+    position: relative;
+}
+
+.analyze-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 255, 0, 0.12);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-weight: 600;
+    font-size: 1.2rem;
+    color: #166534; /* dark green */
+    border-radius: 0.375rem; /* matches Bootstrap rounded */
+}

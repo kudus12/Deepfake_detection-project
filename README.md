@@ -1,4 +1,5 @@
 # Deepfake Detection Project
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 WEEK-1: - Progress Report
 Tasks completed this week: -
 •	Identified Face Forensics++ as the primary dataset for training and evaluation.
@@ -27,7 +28,7 @@ Planned work for next week-2: -
 
 •	Implement preprocessing pipeline in Python for PyTorch compatibility.
 
-
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 Week-2 Report – Image/video Preprocessing (Code-based)
 
 This week, I prepared the FaceForensics++ dataset for use in the deepfake detection system. I classified the dataset into two categories: Real (original) and fake (deepfake altered). I wrote a Python preparation script with OpenCV to ensure that all video files could be opened and decoded appropriately. The script loops over the videos in both directories, reading the first frame and displaying frame characteristics like resolution and colour channels. This phase is critical because machine-learning algorithms require reliable and consistent input data. The findings indicated that both real and fake videos are accessible and suitable for further processing, implying that the dataset is ready for frame extraction and model training in the following steps.
@@ -64,3 +65,4 @@ Planned work for next week-3: -
 •Prepare images (resize, normalise, and label real vs fake)
 
 •Set up the basic CNN model structure for deepfake detection
+-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------

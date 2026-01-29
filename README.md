@@ -7,21 +7,31 @@ Tasks completed this week: -
 •	Updated the project plan using a Jira Kanban board with weekly milestones and time estimates.
  
 Outcome: -
+
 •	Dataset requirements are clearly understood.
+
 •	Project timeline is structured and realistic.
+
 •	The system is ready to move into image preprocessing next week.
-Planned work for next week: - 
-•	Begin image preprocessing (resizing, normalisation, format conversion).
-•	Implement preprocessing pipeline in Python for PyTorch compatibility.
 
 Planned work for next week: - 
+
 •	Begin image preprocessing (resizing, normalisation, format conversion).
+
+•	Implement preprocessing pipeline in Python for PyTorch compatibility.
+
+
+Planned work for next week: -
+
+•	Begin image preprocessing (resizing, normalisation, format conversion).
+
 •	Implement preprocessing pipeline in Python for PyTorch compatibility.
 
 
 This project implements a Flask-based web interface and machine learning preprocessing pipeline for detecting deepfake videos.
 
 ## Project Structure
+
 - ML/ - Machine learning preprocessing and dataset testing scripts
 - templates/ - HTML web interface templates
 - static/ - CSS and static files

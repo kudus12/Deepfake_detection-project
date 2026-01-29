@@ -63,6 +63,7 @@ Planned work for next week-3: -
 •Load the full FaceForensics++ dataset into PyTorch using DataLoader
 
 •Prepare images (resize, normalise, and label real vs fake)
-
 •Set up the basic CNN model structure for deepfake detection
+
+
 -----------------------------------------------------------------------------------------------------------------------------------------------------------------------------

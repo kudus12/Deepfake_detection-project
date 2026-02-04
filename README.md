@@ -69,7 +69,5 @@ Planned work for next week-3: -
 -----------------------------------------------------------------------------------------------------------------------------
 Report for Week 3: Model Design and Configuration
 
-In Week 3, the emphasis was on building up the data pipeline and the fundamental model architecture using PyTorch in order to get the deepfake detection system ready for training.
-
-Real and deepfake films were loaded from the prepared dataset directories using a specially designed PyTorch dataset loader. The loader reads video files, extracts a predetermined number of frames from each video, normalizes pixel values, and resizes the videos to a standard resolution. Because each video is labeled as authentic or phony, the data can be used appropriately for supervised learning. This stage verifies that the dataset can be properly loaded and processed in a format compatible with deep learning.
+In Week 3, the emphasis was on building up the data pipeline and the fundamental model architecture using PyTorch in order to get the deepfake detection system ready for training. Real and deepfake films were loaded from the prepared dataset directories using a specially designed PyTorch dataset loader. The loader reads video files, extracts a predetermined number of frames from each video, normalizes pixel values, and resizes the videos to a standard resolution. Because each video is labeled as authentic or phony, the data can be used appropriately for supervised learning. This stage verifies that the dataset can be properly loaded and processed in a format compatible with deep learning.
 -----------------------------------------------------------------------------------------------------------------------------

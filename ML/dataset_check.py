@@ -2,13 +2,13 @@ import os
 import cv2
 
 # Path to real videos dataset
-REAL_DIR = r"C:\Users\kudus\OneDrive - Atlantic TU\4th year\Research in Computing\full-progress-code\real\original"
+REAL_DIR = r"C:\Users\kudus\OneDrive - Atlantic TU\4th year\Research in Computing\full-progress-code\Dataset\real\original"
 
 # Path to fake (deepfake) videos dataset
-FAKE_DIR = r"C:\Users\kudus\OneDrive - Atlantic TU\4th year\Research in Computing\full-progress-code\fake\Deepfakes"
+FAKE_DIR = r"C:\Users\kudus\OneDrive - Atlantic TU\4th year\Research in Computing\full-progress-code\Dataset\fake\Deepfakes"
 
 # Function to test if videos can be opened and read
-def test_videos(folder, limit=5):
+def test_videos(folder, limit=2000):
     # Get first few mp4 videos from the folder
     vids = [f for f in os.listdir(folder) if f.lower().endswith(".mp4")][:limit]
 

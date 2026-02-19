@@ -1,30 +1,51 @@
+# dataset_loader.py
+# My dataset loader: reads videos and returns FACE-cropped frames (T,C,H,W)
+
 import os
 import cv2
 import torch
 from torch.utils.data import Dataset
 
-# Custom dataset class for loading deepfake and real videos
 class DeepfakeVideoDataset(Dataset):
-    def __init__(self, real_dir, fake_dir, frame_limit=10):
-        # List to store video paths and labels
+    def __init__(self, real_dir, fake_dir, frame_limit=16, face_size=224):
         self.samples = []
-        self.frame_limit = frame_limit  # number of frames per video
+        self.frame_limit = frame_limit
+        self.face_size = face_size
 
-        # Label: 0 = real video
+        # My face detector (simple + works for student projects)
+        haar_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
+        self.face_detector = cv2.CascadeClassifier(haar_path)
+
         for file in os.listdir(real_dir):
-            if file.endswith(".mp4"):
+            if file.lower().endswith(".mp4"):
                 self.samples.append((os.path.join(real_dir, file), 0))
 
-        # Label: 1 = fake (deepfake) video
         for file in os.listdir(fake_dir):
-            if file.endswith(".mp4"):
+            if file.lower().endswith(".mp4"):
                 self.samples.append((os.path.join(fake_dir, file), 1))
 
-    # Returns total number of videos in dataset
     def __len__(self):
         return len(self.samples)
 
-    # Loads one video and returns frames + label
+    def _crop_face(self, frame):
+        # My helper: detect biggest face. If not found, do center crop.
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        faces = self.face_detector.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=5)
+
+        if len(faces) > 0:
+            x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
+            crop = frame[y:y+h, x:x+w]
+        else:
+            h, w, _ = frame.shape
+            s = min(h, w)
+            cx, cy = w // 2, h // 2
+            x1 = max(cx - s // 2, 0)
+            y1 = max(cy - s // 2, 0)
+            crop = frame[y1:y1+s, x1:x1+s]
+
+        crop = cv2.resize(crop, (self.face_size, self.face_size))
+        return crop
+
     def __getitem__(self, index):
         video_path, label = self.samples[index]
         cap = cv2.VideoCapture(video_path)
@@ -32,53 +53,33 @@ class DeepfakeVideoDataset(Dataset):
         frames = []
         count = 0
 
-        # Read frames until frame limit is reached
         while cap.isOpened() and count < self.frame_limit:
             ret, frame = cap.read()
             if not ret:
-                break  # stop if video ends or fails
+                break
 
-            # Resize frame to model input size
-            frame = cv2.resize(frame, (224, 224))
+            face = self._crop_face(frame)
 
-            # Normalize pixel values between 0 and 1
-            frame = frame.astype("float32") / 255.0
+            # BGR -> RGB
+            face = face[:, :, ::-1]
 
-            # Convert frame to tensor and change format to C,H,W
-            frame = torch.from_numpy(frame).permute(2, 0, 1)
+            # Normalize
+            face = face.astype("float32") / 255.0
 
-            frames.append(frame)
+            # To tensor (C,H,W)
+            face = torch.from_numpy(face).permute(2, 0, 1)
+
+            frames.append(face)
             count += 1
 
         cap.release()
 
-        # Prevent crash if video decoding fails
         if len(frames) == 0:
-            # Create empty frames if video fails
-            frames = torch.zeros((self.frame_limit, 3, 224, 224), dtype=torch.float32)
-        else:
-            # Pad frames if video shorter than frame_limit
-            while len(frames) < self.frame_limit:
-                frames.append(frames[-1].clone())
+            # My fallback: try next video
+            return self.__getitem__((index + 1) % len(self.samples))
 
-            # Stack frames into tensor
-            frames = torch.stack(frames[:self.frame_limit])
+        while len(frames) < self.frame_limit:
+            frames.append(frames[-1].clone())
 
-        # Return video frames and label
+        frames = torch.stack(frames[:self.frame_limit])  # (T,C,H,W)
         return frames, label
-
-
-# Test dataset loading when running file directly
-if __name__ == "__main__":
-    REAL_DIR = r"C:\Users\kudus\OneDrive - Atlantic TU\4th year\Research in Computing\full-progress-code\Dataset\real\original"
-    FAKE_DIR = r"C:\Users\kudus\OneDrive - Atlantic TU\4th year\Research in Computing\full-progress-code\Dataset\fake\Deepfakes"
-
-    dataset = DeepfakeVideoDataset(REAL_DIR, FAKE_DIR)
-
-    # Print dataset size
-    print("Total videos loaded:", len(dataset))
-
-    # Load one example
-    frames, label = dataset[0]
-    print("Frames shape:", frames.shape)
-    print("Label (0=real, 1=fake):", label)

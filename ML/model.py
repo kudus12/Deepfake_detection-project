@@ -1,48 +1,69 @@
+# model.py
+# My CNN model: takes video frames (B,T,C,H,W) and outputs 2 classes (real/fake)
+
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
 class SimpleCNN(nn.Module):
-    def __init__(self):
+    def __init__(self, num_classes=2):
         super().__init__()
 
-        # CNN feature extractor (per frame)
+        # My feature extractor (stronger than the old one)
         self.features = nn.Sequential(
-            nn.Conv2d(3, 16, kernel_size=3, padding=1),
+            # Block 1
+            nn.Conv2d(3, 32, kernel_size=3, padding=1),
+            nn.BatchNorm2d(32),
             nn.ReLU(),
-            nn.MaxPool2d(2),
+            nn.MaxPool2d(2),  # 224 -> 112
 
-            nn.Conv2d(16, 32, kernel_size=3, padding=1),
-            nn.ReLU(),
-            nn.MaxPool2d(2),
-
+            # Block 2
             nn.Conv2d(32, 64, kernel_size=3, padding=1),
+            nn.BatchNorm2d(64),
             nn.ReLU(),
+            nn.MaxPool2d(2),  # 112 -> 56
 
-            nn.AdaptiveAvgPool2d((1, 1))
+            # Block 3
+            nn.Conv2d(64, 128, kernel_size=3, padding=1),
+            nn.BatchNorm2d(128),
+            nn.ReLU(),
+            nn.MaxPool2d(2),  # 56 -> 28
+
+            # Block 4
+            nn.Conv2d(128, 256, kernel_size=3, padding=1),
+            nn.BatchNorm2d(256),
+            nn.ReLU(),
+            nn.MaxPool2d(2),  # 28 -> 14
         )
 
-        # Final classifier
-        self.classifier = nn.Linear(64, 2)  # real / fake
+        # My classifier head
+        self.classifier = nn.Sequential(
+            nn.Dropout(0.4),
+            nn.Linear(256 * 14 * 14, 256),
+            nn.ReLU(),
+            nn.Dropout(0.4),
+            nn.Linear(256, num_classes)
+        )
 
     def forward(self, x):
         """
         x shape: (B, T, C, H, W)
+        I run CNN per-frame, then average across time.
         """
-
         B, T, C, H, W = x.shape
 
-        # merge batch and time
+        # Merge batch + time so CNN sees images
         x = x.view(B * T, C, H, W)
 
         x = self.features(x)
-        x = x.view(B * T, -1)  # flatten
+        x = x.view(x.size(0), -1)  # flatten
 
-        # restore batch dimension
-        x = x.view(B, T, -1)
+        logits = self.classifier(x)  # (B*T, 2)
 
-        # average frames
-        x = x.mean(dim=1)
+        # Bring back time dimension
+        logits = logits.view(B, T, -1)  # (B, T, 2)
 
-        # classify
-        out = self.classifier(x)
-        return out
+        # Average frame predictions -> video prediction
+        logits = logits.mean(dim=1)  # (B, 2)
+
+        return logits

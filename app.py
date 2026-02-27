@@ -1,102 +1,94 @@
-from flask import Flask, render_template, request, send_from_directory
-from werkzeug.utils import secure_filename
+# app.py
+# Week 6: Flask app connects to trained model and predicts Real/Fake from uploaded video
+
 import os
+import uuid
+from flask import Flask, render_template, request
+
+from ML.inference import load_my_model, predict_video  # keep this
 
 app = Flask(__name__)
 
-# Folder to store uploads
+# -----------------------------
+# 1) Upload folder
+# -----------------------------
 UPLOAD_FOLDER = "uploads"
+DEBUG_FRAMES_FOLDER = "debug_frames"  # where we save the face crops used
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+os.makedirs(DEBUG_FRAMES_FOLDER, exist_ok=True)
+
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 
-ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
+# -----------------------------
+# 2) Load model once
+# -----------------------------
+MODEL_PATH = "saved_models/best_model.pth"
+my_model = load_my_model(MODEL_PATH)
+
+# -----------------------------
+# 3) Home
+# -----------------------------
+@app.route("/", methods=["GET"])
+def home():
+    return render_template("index.html")
 
 
-def allowed_file(filename: str) -> bool:
-    return "." in filename and "." in filename and filename.rsplit(".", 1)[1].lower() in ALLOWED_EXTENSIONS
+# -----------------------------
+# Helper: safe extension check
+# -----------------------------
+def allowed_video(filename: str) -> bool:
+    filename = filename.lower()
+    return filename.endswith(".mp4") or filename.endswith(".mov") or filename.endswith(".avi") or filename.endswith(".mkv")
 
 
-def dummy_deepfake_detector(filename: str):
-    """
-    DEMO LOGIC:
+# -----------------------------
+# 4) Predict
+# -----------------------------
+@app.route("/predict", methods=["POST"])
+def predict():
+    if "file" not in request.files:
+        return render_template("index.html", error="No file uploaded.")
 
-    - If filename is exactly "pic1.jpg" / "pic1.png" / "pic1.jpeg" -> Clean / Real
-    - If filename is exactly "pic2.jpg" / "pic2.png" / "pic2.jpeg" -> Not clean / Deepfake
-    - Otherwise -> Unknown (demo only)
-    """
-    name = filename.lower()
+    file = request.files["file"]
 
-    pic1_names = {"pic1.jpg", "pic1.png", "pic1.jpeg"}
-    pic2_names = {"pic2.jpg", "pic2.png", "pic2.jpeg"}
+    if file.filename == "":
+        return render_template("index.html", error="No file selected.")
 
-    if name in pic1_names:
-        label = "Clean / Real image"
-        status = "real"
-        confidence = 92.5
-    elif name in pic2_names:
-        label = "Not clean / Deepfake detected"
-        status = "fake"
-        confidence = 89.1
-    else:
-        label = "Unknown image (demo logic only)"
-        status = "unknown"
-        confidence = 50.0
+    if not allowed_video(file.filename):
+        return render_template("index.html", error="Please upload a video file (.mp4/.mov/.avi/.mkv).")
 
-    return label, status, confidence
+    # ✅ IMPORTANT: save with a unique name to avoid overwriting / caching issues
+    ext = os.path.splitext(file.filename)[1].lower()
+    unique_name = f"{uuid.uuid4().hex}{ext}"
+    save_path = os.path.join(app.config["UPLOAD_FOLDER"], unique_name)
 
+    file.save(save_path)
 
-@app.route("/", methods=["GET", "POST"])
-def index():
-    prediction = None
-    status = None
-    confidence = None
-    filename = None
-    error = None
+    # ✅ Make a unique debug folder per upload
+    per_video_debug = os.path.join(DEBUG_FRAMES_FOLDER, os.path.splitext(unique_name)[0])
+    os.makedirs(per_video_debug, exist_ok=True)
 
-    if request.method == "POST":
-        if "file" not in request.files:
-            error = "No file part in the request."
-            return render_template("index.html", error=error)
+    # ✅ Prediction (uses debug_dir to save what the model actually sees)
+    label, confidence, probs = predict_video(
+        my_model,
+        save_path,
+        frame_limit=16,
+        flip_labels=False,
+        debug_dir=per_video_debug
+    )
 
-        file = request.files["file"]
-
-        if file.filename == "":
-            error = "No file selected."
-            return render_template("index.html", error=error)
-
-        if file and allowed_file(file.filename):
-            safe_name = secure_filename(file.filename)
-            save_path = os.path.join(app.config["UPLOAD_FOLDER"], safe_name)
-            file.save(save_path)
-
-            prediction, status, confidence = dummy_deepfake_detector(safe_name)
-            filename = safe_name
-
-            return render_template(
-                "index.html",
-                prediction=prediction,
-                status=status,
-                confidence=round(confidence, 2),
-                filename=filename,
-                error=None,
-            )
-        else:
-            error = "Unsupported file type. Please upload a JPG or PNG image."
+    if label == "ERROR":
+        return render_template("index.html", error="Could not read this video. Try another one.")
 
     return render_template(
         "index.html",
-        prediction=prediction,
-        status=status,
-        confidence=confidence,
-        filename=filename,
-        error=error,
+        prediction=label,
+        confidence=f"{confidence:.2f}",
+        prob_real=f"{probs[0]*100:.2f}",
+        prob_fake=f"{probs[1]*100:.2f}",
+        filename=file.filename,          # original filename for display
+        saved_as=unique_name             # optional if you want to show it
     )
-
-
-# Route to serve uploaded images so they can be displayed in the page
-@app.route("/uploads/<path:filename>")
-def uploaded_files(filename):
-    return send_from_directory(app.config["UPLOAD_FOLDER"], filename)
 
 
 if __name__ == "__main__":

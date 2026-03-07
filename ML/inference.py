@@ -1,28 +1,16 @@
 # ML/inference.py
-# Week 6: Inference (prediction) code for Flask
-# Goal: load saved model + predict Real/Fake from uploaded video
-#
-# IMPORTANT: This matches TRAINING preprocessing:
-# - face crop (haar cascade)
-# - BGR -> RGB
-# - normalize /255
-# - sequential frames from start (up to frame_limit)
-#
-# If you want, you can enable debug to save the face crops used.
+# Old inference code (no UNCERTAIN)
 
 import os
 import cv2
 import torch
 import torch.nn.functional as F
 
-from ML.model import SimpleCNN  # IMPORTANT: ML.model (not just model)
+from ML.model import SimpleCNN
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-# -----------------------------
-# Load model
-# -----------------------------
 def load_my_model(model_path: str):
     """
     Loads trained CNN weights from .pth file and returns model in eval mode.
@@ -30,7 +18,7 @@ def load_my_model(model_path: str):
     model = SimpleCNN().to(DEVICE)
     state = torch.load(model_path, map_location=DEVICE)
 
-    # If you ever saved a checkpoint dict:
+    # If a checkpoint dict was saved
     if isinstance(state, dict) and "state_dict" in state:
         state = state["state_dict"]
 
@@ -39,9 +27,6 @@ def load_my_model(model_path: str):
     return model
 
 
-# -----------------------------
-# Face crop (MATCH TRAINING)
-# -----------------------------
 def _make_face_detector():
     haar_path = cv2.data.haarcascades + "haarcascade_frontalface_default.xml"
     return cv2.CascadeClassifier(haar_path)
@@ -57,6 +42,8 @@ def _crop_face_like_training(frame, face_detector, face_size=224):
     gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     faces = face_detector.detectMultiScale(gray, scaleFactor=1.2, minNeighbors=5)
 
+    did_detect = False
+
     if len(faces) > 0:
         x, y, w, h = max(faces, key=lambda f: f[2] * f[3])
         crop = frame[y:y + h, x:x + w]
@@ -68,18 +55,15 @@ def _crop_face_like_training(frame, face_detector, face_size=224):
         x1 = max(cx - s // 2, 0)
         y1 = max(cy - s // 2, 0)
         crop = frame[y1:y1 + s, x1:x1 + s]
-        did_detect = False
 
     crop = cv2.resize(crop, (face_size, face_size))
     return crop, did_detect
 
 
-# -----------------------------
-# Video -> Tensor (MATCH TRAINING exactly)
-# -----------------------------
 def video_to_tensor(video_path: str, frame_limit=16, size=224, debug_dir=None):
     """
     Returns tensor shape: (1, T, C, H, W)
+
     MATCH TRAINING:
     - sequential frames from start until frame_limit
     - face crop
@@ -109,7 +93,7 @@ def video_to_tensor(video_path: str, frame_limit=16, size=224, debug_dir=None):
         if did_detect:
             face_hits += 1
 
-        # OPTIONAL: save crops the model sees (BGR)
+        # optional: save crops the model sees
         if debug_dir:
             tag = "FACE" if did_detect else "CENTER"
             cv2.imwrite(os.path.join(debug_dir, f"{count:02d}_{tag}.jpg"), face_bgr)
@@ -131,29 +115,25 @@ def video_to_tensor(video_path: str, frame_limit=16, size=224, debug_dir=None):
     if len(frames) == 0:
         return None
 
-    # Pad if short (MATCH TRAINING)
+    # pad if short
     while len(frames) < frame_limit:
         frames.append(frames[-1].clone())
 
-    frames = torch.stack(frames[:frame_limit])  # (T,C,H,W)
-    frames = frames.unsqueeze(0)                # (1,T,C,H,W)
+    frames = torch.stack(frames[:frame_limit])   # (T,C,H,W)
+    frames = frames.unsqueeze(0)                 # (1,T,C,H,W)
 
-    # Helpful print (you can remove later)
     if debug_dir:
         print(f"[DEBUG] Face detected in {face_hits}/{frame_limit} frames for {os.path.basename(video_path)}")
 
     return frames
 
 
-# -----------------------------
-# Predict
-# -----------------------------
 def predict_video(model, video_path: str, frame_limit=16, flip_labels=False, debug_dir=None):
     """
     Returns:
-      label (str): "REAL" or "FAKE"
-      confidence (float): 0..100
-      probs (list): [prob_real, prob_fake]
+        label (str): "REAL" or "FAKE"
+        confidence (float): 0..100
+        probs (list): [prob_real, prob_fake]
     """
     frames = video_to_tensor(video_path, frame_limit=frame_limit, size=224, debug_dir=debug_dir)
     if frames is None:
@@ -162,10 +142,10 @@ def predict_video(model, video_path: str, frame_limit=16, flip_labels=False, deb
     frames = frames.to(DEVICE)
 
     with torch.no_grad():
-        logits = model(frames)              # (1,2)
-        probs = F.softmax(logits, dim=1)    # (1,2)
+        logits = model(frames)                 # (1,2)
+        probs = F.softmax(logits, dim=1)       # (1,2)
 
-        prob_real = float(probs[0, 0].item())  # 0 = REAL (your training)
+        prob_real = float(probs[0, 0].item())  # 0 = REAL
         prob_fake = float(probs[0, 1].item())  # 1 = FAKE
 
         pred_idx = int(torch.argmax(probs, dim=1).item())

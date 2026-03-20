@@ -1,55 +1,124 @@
-<!-- templates/index.html -->
-<!-- Week 6: My Flask UI for uploading a video and showing Real/Fake prediction -->
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Deepfake Detection</title>
-  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deepfake Detection Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
-
 <body>
-  <div class="container">
-    <h1>Deepfake Detection</h1>
-    <p class="subtitle">Upload a video and my model will predict if it is <b>Real</b> or <b>Fake</b>.</p>
+    <div class="page-shell">
+        <aside class="sidebar">
+            <div class="brand">
+                <div class="brand-logo">AI</div>
+                <div>
+                    <h2>Deepfake Detection</h2>
+                    <p>Video Analysis Dashboard</p>
+                </div>
+            </div>
 
-    <!-- Upload Form -->
-    <form class="card" action="/predict" method="POST" enctype="multipart/form-data">
-      <label class="label">Choose a video file (mp4 recommended):</label>
-      <input class="file" type="file" name="file" accept="video/*" required />
+            <div class="sidebar-card">
+                <h3>How it works</h3>
+                <p>
+                    Upload a video and the system will analyse the extracted frames,
+                    classify the content as <strong>REAL</strong> or <strong>FAKE</strong>,
+                    and display the 16 frames used during prediction.
+                </p>
+            </div>
 
-      <button class="btn" type="submit">Predict</button>
-    </form>
+            <div class="sidebar-card">
+                <h3>Supported Files</h3>
+                <p>.mp4, .mov, .avi, .mkv</p>
+            </div>
+        </aside>
 
-    <!-- Error message -->
-    {% if error %}
-      <div class="result error">
-        <h2>Error</h2>
-        <p>{{ error }}</p>
-      </div>
-    {% endif %}
+        <main class="main-content">
+            <header class="topbar">
+                <div>
+                    <h1>Deepfake Video Analysis</h1>
+                    <p>Upload a video to begin model inference</p>
+                </div>
+            </header>
 
-    <!-- Prediction result -->
-    {% if prediction %}
-      <div class="result">
-        <h2>Result</h2>
+            <section class="upload-panel">
+                <form action="/predict" method="POST" enctype="multipart/form-data" class="upload-form">
+                    <label for="file" class="upload-label">Select Video</label>
+                    <input type="file" name="file" id="file" accept="video/*" required>
+                    <button type="submit" class="analyse-btn">Analyse Video</button>
+                </form>
+            </section>
 
-        <p><b>File:</b> {{ filename }}</p>
-        <p><b>Prediction:</b> <span class="tag">{{ prediction }}</span></p>
-        <p><b>Confidence:</b> {{ confidence }}%</p>
+            {% if error %}
+            <section class="alert-card error-card">
+                <h3>Error</h3>
+                <p>{{ error }}</p>
+            </section>
+            {% endif %}
 
-        <hr />
+            {% if prediction %}
+            <section class="results-grid">
+                <div class="card result-card">
+                    <div class="card-header">
+                        <h3>Prediction Summary</h3>
+                    </div>
 
-        <p><b>Real probability:</b> {{ prob_real }}%</p>
-        <p><b>Fake probability:</b> {{ prob_fake }}%</p>
+                    <div class="prediction-badge 
+                        {% if prediction == 'REAL' %}real-badge
+                        {% elif prediction == 'FAKE' %}fake-badge
+                        {% else %}neutral-badge{% endif %}">
+                        {{ prediction }}
+                    </div>
 
-        <p class="note">
-          Note: This is a student project model trained from scratch. Results depend on video quality and content.
-        </p>
-      </div>
-    {% endif %}
-  </div>
+                    <div class="metric-list">
+                        <div class="metric-item">
+                            <span>Confidence</span>
+                            <strong>{{ confidence }}%</strong>
+                        </div>
+                        <div class="metric-item">
+                            <span>Real Probability</span>
+                            <strong>{{ prob_real }}%</strong>
+                        </div>
+                        <div class="metric-item">
+                            <span>Fake Probability</span>
+                            <strong>{{ prob_fake }}%</strong>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card video-card">
+                    <div class="card-header">
+                        <h3>Uploaded Video</h3>
+                    </div>
+                    {% if uploaded_video %}
+                    <video controls class="uploaded-video">
+                        <source src="{{ url_for('uploaded_file', filename=uploaded_video) }}">
+                        Your browser does not support the video tag.
+                    </video>
+                    {% endif %}
+                </div>
+            </section>
+
+            {% if frame_files %}
+            <section class="card frames-card">
+                <div class="card-header">
+                    <div>
+                        <h3>Model Input Frames</h3>
+                        <p>The 16 extracted frames used during inference</p>
+                    </div>
+                </div>
+
+                <div class="frames-grid">
+                    {% for frame in frame_files %}
+                    <div class="frame-tile">
+                        <img src="{{ url_for('debug_file', filename=debug_folder + '/' + frame) }}" alt="Frame {{ loop.index }}">
+                        <span>Frame {{ loop.index }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </section>
+            {% endif %}
+            {% endif %}
+        </main>
+    </div>
 </body>
 </html>
